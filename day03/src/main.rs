@@ -1,10 +1,11 @@
 // TODO: Narrow this down to what we use.
 use nom::{
     named,
-    call,
+    call, eof,
     do_parse, tag, take_while1,
     map_res, error_position,
     space, is_digit,
+    types::CompleteByteSlice,
 };
 
 use std::{
@@ -62,14 +63,11 @@ fn get_input() -> Result<Vec<Pos>> {
 
     let mut result = vec![];
     for line in f.lines() {
-        let mut line = line?;
+        let line = line?;
 
-        // Nom apparently can't deal with take_while1 at the end of input,
-        // so append a sentinal to finish the parse.
-        line.push('\n');
         // println!("{:?}", line);
         // TODO: Better than unwrap, but this is ok for this.
-        let (_, pos) = parse_cut(line.as_bytes()).unwrap();
+        let (_, pos) = parse_cut(CompleteByteSlice(line.as_bytes())).unwrap();
         // let pos = match parse_cut(line.as_bytes()) {
         //     Ok((b"", pos)) => pos,
         //     Ok((rest, _)) => panic!("Trailing garbage: {:?}", rest),
@@ -91,7 +89,7 @@ struct Pos {
 }
 
 // Parser for the cuts.
-named!(parse_cut<Pos>,
+named!(parse_cut(CompleteByteSlice) -> Pos,
     do_parse!(
         tag!("#") >>
         num: decimal >> space >>
@@ -99,7 +97,7 @@ named!(parse_cut<Pos>,
         x: decimal >> tag!(",") >>
         y: decimal >> tag!(":") >> space >>
         w: decimal >> tag!("x") >>
-        h: decimal >>
+        h: decimal >> eof!() >>
         (
             Pos {
                 num: num,
@@ -111,9 +109,9 @@ named!(parse_cut<Pos>,
         )
     ));
 
-named!(decimal<i32>,
+named!(decimal(CompleteByteSlice) -> i32,
        map_res!(take_while1!(is_digit), from_decimal));
 
-fn from_decimal(input: &[u8]) -> Result<i32> {
-    Ok(i32::from_str_radix(std::str::from_utf8(input)?, 10)?)
+fn from_decimal(input: CompleteByteSlice) -> Result<i32> {
+    Ok(i32::from_str_radix(std::str::from_utf8(input.0)?, 10)?)
 }
