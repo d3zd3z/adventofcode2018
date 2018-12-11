@@ -99,7 +99,7 @@ impl Solver {
     fn closest(&self, cell: &Coord) -> Option<usize> {
         let mut unique = false;
         let mut best = None;
-        let mut best_value = 12345678; // Tacky, best to use max value for int.
+        let mut best_value = std::i32::MAX;
 
         for (&k, pos) in self.coords.iter() {
             let dist = (cell.x - pos.x).abs() + (cell.y - pos.y).abs();
