@@ -18,6 +18,7 @@ fn main() -> Result<()> {
     // println!("solve: {:?}", solve);
 
     solve.solve1();
+    solve.solve2(10000);
     Ok(())
 }
 
@@ -94,6 +95,80 @@ impl Solver {
         }
     }
 
+    /// Solve the second part of the problem.  We're trying to find places
+    /// where the sum of the distance to each coord is less than a given
+    /// value.  The region given is large (10000), so we have to be a bit
+    /// creative with how we determine the search area.
+    fn solve2(&self, bound: i32) {
+
+        // To start, let's find the center of all of the coordinates.  This
+        // hopefully is within bounds.
+        let xsum = self.coords.values().map(|c| c.x as f64).sum::<f64>() /
+            (self.coords.len() as f64);
+        let ysum = self.coords.values().map(|c| c.y as f64).sum::<f64>() /
+            (self.coords.len() as f64);
+
+        let xbase = xsum as i32;
+        let ybase = ysum as i32;
+
+        // println!("x: {}, y: {}", xbase, ybase);
+        // println!("cum: {}", self.cum_distance(&Coord{x: xbase, y: ybase}));
+
+        let mut total = 0usize;
+
+        // Walk by y coordinates 'up' until we run out of distance.
+        for dy in 0.. {
+            let y = ybase - dy;
+
+            let sum = self.hwalk(bound, y, xbase);
+            if sum == 0 {
+                break;
+            }
+
+            total += sum;
+        }
+
+        for dy in 1.. {
+            let y = ybase + dy;
+
+            let sum = self.hwalk(bound, y, xbase);
+            if sum == 0 {
+                break;
+            }
+
+            total += sum;
+        }
+
+        println!("Total: {}", total);
+    }
+
+    /// Walk across x coordinates determining how many are "inside".
+    fn hwalk(&self, bound: i32, y: i32, xbase: i32) -> usize {
+        let mut total = 0usize;
+
+        for dx in 0.. {
+            let x = xbase - dx;
+            let dist = self.cum_distance(&Coord{x: x, y: y});
+            if dist >= bound {
+                break;
+            }
+
+            total += 1;
+        }
+
+        for dx in 1.. {
+            let x = xbase + dx;
+            let dist = self.cum_distance(&Coord{x: x, y: y});
+            if dist >= bound {
+                break;
+            }
+
+            total += 1;
+        }
+
+        total
+    }
+
     /// Find the coordinate closest to the given cell.  If it is not
     /// unique, return None.
     fn closest(&self, cell: &Coord) -> Option<usize> {
@@ -117,6 +192,18 @@ impl Solver {
         } else {
             None
         }
+    }
+
+    /// Find the cumulative distance to all of the coords from the given
+    /// point.
+    fn cum_distance(&self, cell: &Coord) -> i32 {
+        let mut cum = 0;
+
+        for pos in self.coords.values() {
+            let dist = (cell.x - pos.x).abs() + (cell.y - pos.y).abs();
+            cum += dist;
+        }
+        cum
     }
 }
 
