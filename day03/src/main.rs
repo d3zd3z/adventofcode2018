@@ -1,4 +1,5 @@
 // TODO: Narrow this down to what we use.
+use failure::format_err;
 use nom::{
     named,
     call, eof,
@@ -61,22 +62,17 @@ fn main() -> Result<()> {
 fn get_input() -> Result<Vec<Pos>> {
     let f = BufReader::new(File::open("cuts.txt")?);
 
-    let mut result = vec![];
-    for line in f.lines() {
+    f.lines().map(|line| {
         let line = line?;
 
-        // println!("{:?}", line);
-        // TODO: Better than unwrap, but this is ok for this.
-        let (_, pos) = parse_cut(CompleteByteSlice(line.as_bytes())).unwrap();
-        // let pos = match parse_cut(line.as_bytes()) {
-        //     Ok((b"", pos)) => pos,
-        //     Ok((rest, _)) => panic!("Trailing garbage: {:?}", rest),
-        //     Err(e) => panic!(e),
-        // };
-        // println!("{:?} ({:?}", pos, rest);
-        result.push(pos);
-    }
-    Ok(result)
+        // This is a little tricky, because the error back from the parser
+        // has a lifetime dependency on the parser input, but the error
+        // will need to outlive the input.  To keep things simple, just
+        // format the error into a string, and use that.
+        let (_, pos) = parse_cut(CompleteByteSlice(line.as_bytes()))
+            .map_err(|e| format_err!("Parse error: {:?}", e))?;
+        Ok(pos)
+    }).collect()
 }
 
 #[derive(Debug)]

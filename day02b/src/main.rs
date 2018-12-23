@@ -47,10 +47,5 @@ fn show(a: &str, b: &str) {
 fn get_input() -> Result<Vec<String>> {
     let f = BufReader::new(File::open("ids.txt")?);
 
-    let mut result = vec![];
-    for line in f.lines() {
-        let line = line?;
-        result.push(line);
-    }
-    Ok(result)
+    f.lines().map(|line| Ok(line?)).collect()
 }

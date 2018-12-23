@@ -1,3 +1,4 @@
+use failure::format_err;
 use regex::Regex;
 use std::{
     collections::{
@@ -211,18 +212,16 @@ fn get_input() -> Result<Vec<Coord>> {
     let re = Regex::new(r"^(\d+), (\d+)$")?;
     let f = BufReader::new(File::open("coords.txt")?);
 
-    let mut result = vec![];
-    for line in f.lines() {
+    f.lines().map(|line| {
         let line = line?;
 
         match re.captures(&line) {
-            None => panic!("Invalid line"),
+            None => Err(format_err!("Invalid line: {:?}", line)),
             Some(cap) => {
                 let x = cap[1].parse().unwrap();
                 let y = cap[2].parse().unwrap();
-                result.push(Coord{x,y});
+                Ok(Coord{x,y})
             }
         }
-    }
-    Ok(result)
+    }).collect()
 }

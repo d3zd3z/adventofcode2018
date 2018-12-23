@@ -1,3 +1,4 @@
+use failure::format_err;
 use regex::Regex;
 use std::{
     cmp::Ordering,
@@ -139,19 +140,17 @@ fn get_input() -> Result<Vec<Depend>> {
     let re = Regex::new(r"^Step (.) must be finished before step (.) can begin\.$")?;
     let f = BufReader::new(File::open("steps.txt")?);
 
-    let mut result = vec![];
-    for line in f.lines() {
+    f.lines().map(|line| {
         let line = line?;
 
         match re.captures(&line) {
-            None => panic!("Invalid line"),
+            None => Err(format_err!("Invalid line: {:?}", line)),
             Some(cap) => {
                 // TODO: I don't know why I just can't do `cap[1][0]`.
                 let pre = cap.get(1).unwrap().as_str().chars().next().unwrap();
                 let post = cap.get(2).unwrap().as_str().chars().next().unwrap();
-                result.push(Depend{pre, post});
+                Ok(Depend{pre, post})
             }
         }
-    }
-    Ok(result)
+    }).collect()
 }

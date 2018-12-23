@@ -158,13 +158,10 @@ impl Guard {
 fn get_input() -> Result<Vec<Event>> {
     let p = Parser::new();
     let f = BufReader::new(File::open("shift.txt")?);
-    let mut result = vec![];
 
-    for line in f.lines() {
+    f.lines().map(|line| {
         let line = line?;
 
-        let ev = p.parse_line(&line)?;
-        result.push(ev);
-    }
-    Ok(result)
+        Ok(p.parse_line(&line)?)
+    }).collect()
 }
