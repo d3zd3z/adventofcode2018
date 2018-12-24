@@ -40,17 +40,28 @@ fn main() {
 
 struct Rack {
     serial: i32,
+
+    /// Indexed by (y-1)*300+(x-1).
+    levels: Vec<i32>,
 }
 
 impl Rack {
     fn new(serial: i32) -> Rack {
+        let mut levels = vec![0i32; 300*300];
+        for y in 0 .. 300 {
+            for x in 0 .. 300 {
+                levels[(y*300+x) as usize] = (((x + 11) * (y + 1) + serial) * (x + 11) / 100) % 10 - 5;
+            }
+        }
         Rack {
             serial: serial,
+            levels: levels,
         }
     }
 
     fn level(&self, x: i32, y: i32) -> i32 {
-        (((x + 10) * y + self.serial) * (x + 10) / 100) % 10 - 5
+        // (((x + 10) * y + self.serial) * (x + 10) / 100) % 10 - 5
+        self.levels[((y-1)*300+x-1) as usize]
     }
 
     fn power_grid(&self, x: i32, y: i32, size: i32) -> i32 {
