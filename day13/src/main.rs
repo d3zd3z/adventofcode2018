@@ -1,5 +1,5 @@
 use std::{
-    collections::{HashSet, HashMap},
+    collections::{HashMap, HashSet},
     fmt,
     fs::File,
     io::{BufRead, BufReader},
@@ -22,6 +22,17 @@ fn main() -> Result<()> {
         }
         // println!("tracks: {:?}", tr);
     }
+
+    // Now continue running (with collisions) until there is only one car
+    // left.
+    while tr.cars.len() > 1 {
+        if let Some((x, y)) = tr.one_step() {
+            println!("  Remove at = {},{}", x, y);
+        }
+    }
+
+    // The final result is the position of the last car.
+    println!("x,y = {},{}", tr.cars[0].x, tr.cars[0].y);
     Ok(())
 }
 
@@ -37,6 +48,7 @@ enum Facing {
 
 #[derive(Debug)]
 struct Car {
+    id: usize,   // A unique id for each car, used for removal.
     x: usize,
     y: usize,
     turn: Turn,
@@ -82,21 +94,22 @@ impl Track {
             // Fix up the cars, replacing the track segments, and
             // separately recording the position of the cars.
             let line = line.bytes().enumerate().map(|(x, ch)| {
+                let id = cars.len();
                 match ch {
                     b'^' => {
-                        cars.push(Car{x: x, y: y, turn: Turn::Left, dir: Facing::Up});
+                        cars.push(Car{x: x, y: y, turn: Turn::Left, dir: Facing::Up, id});
                         b'|'
                     }
                     b'v' => {
-                        cars.push(Car{x: x, y: y, turn: Turn::Left, dir: Facing::Down});
+                        cars.push(Car{x: x, y: y, turn: Turn::Left, dir: Facing::Down, id});
                         b'|'
                     }
                     b'<' => {
-                        cars.push(Car{x: x, y: y, turn: Turn::Left, dir: Facing::Left});
+                        cars.push(Car{x: x, y: y, turn: Turn::Left, dir: Facing::Left, id});
                         b'-'
                     }
                     b'>' => {
-                        cars.push(Car{x: x, y: y, turn: Turn::Left, dir: Facing::Right});
+                        cars.push(Car{x: x, y: y, turn: Turn::Left, dir: Facing::Right, id});
                         b'-'
                     }
                     ch => ch,
@@ -146,31 +159,53 @@ impl Track {
             x, y,
             dir: new_dir,
             turn: new_turn,
+            id: car.id,
         }
     }
 
     /// Apply a single step, returning a collision if there is one, or None
     /// if we didn't find a collision.  Note that when there is a
-    /// collision, the cars will not be updated.
+    /// collision, the two affected cars will be removed.
     fn one_step(&mut self) -> Option<(usize, usize)> {
-        let mut places: HashSet<_> = self.cars.iter().map(|c| (c.x, c.y)).collect();
+        let mut places: HashMap<_, _> = self.cars.iter().map(|c| ((c.x, c.y), c.id)).collect();
         self.sort_cars();
+
+        let mut result = None;
+        let mut removes: HashSet<usize> = HashSet::new();
 
         let mut new_cars = Vec::with_capacity(self.cars.len());
         for car in &self.cars {
+            if removes.contains(&car.id) {
+                continue;
+            }
             let new_car = self.move_car(car);
-            if places.contains(&(new_car.x, new_car.y)) {
-                return Some((new_car.x, new_car.y));
+            match places.get(&(new_car.x, new_car.y)) {
+                None => (),
+                Some(ccar) => {
+                    // Return the first colliding coordinate.
+                    if result.is_none() {
+                        result = Some((new_car.x, new_car.y));
+                    }
+
+                    // And mark both cars as being removed.
+                    removes.insert(*ccar);
+                    removes.insert(new_car.id);
+
+                    // Since both cars are now removed, remove this coord.
+                    places.remove(&(new_car.x, new_car.y));
+                },
             }
 
             places.remove(&(car.x, car.y));
-            places.insert((new_car.x, new_car.y));
+            places.insert((new_car.x, new_car.y), new_car.id);
 
             new_cars.push(new_car);
         }
 
-        self.cars = new_cars;
-        None
+        // Update the removes, since it is possible for cars to go away
+        // because a lower car collides with it.
+        self.cars = new_cars.into_iter().filter(|c| !removes.contains(&c.id)).collect();
+        result
     }
 }
 
