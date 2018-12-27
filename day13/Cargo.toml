@@ -1,0 +1,8 @@
+[package]
+name = "day13"
+version = "0.1.0"
+authors = ["David Brown <david.brown@linaro.org>"]
+edition = "2018"
+
+[dependencies]
+failure = "0.1"
