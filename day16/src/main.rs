@@ -12,6 +12,8 @@ use std::{
 
 type Result<T> = result::Result<T, failure::Error>;
 
+type Register = u32;
+
 fn main() -> Result<()> {
     let input = Input::from_file("input.txt")?;
     // println!("Input: {:?}", input);
@@ -34,19 +36,22 @@ fn main() -> Result<()> {
         }
     }
     println!("Total count: {}", total_count);
+
+    input.solve2();
     Ok(())
 }
 
 #[derive(Debug)]
 struct Sample {
-    before: [u8; 4],
-    op: [u8; 4],
-    after: [u8; 4],
+    before: [Register; 4],
+    op: [Register; 4],
+    after: [Register; 4],
 }
 
 #[derive(Debug)]
 struct Input {
     samples: Vec<Sample>,
+    program: Vec<[Register; 4]>,
 }
 
 /// The opcodes given.  The order listed here is just given in the problem
@@ -79,17 +84,71 @@ impl Input {
             });
         }
 
-        // TODO: Read additional lines.
+        // Read in the sample program.
+        scan_blank(&mut lines)?;
+
+        let mut program = vec![];
+        while let Some(op) = scan_line(&mut lines, &op_re)? {
+            program.push(op);
+        }
 
         Ok(Input{
             samples: samples,
+            program: program,
         })
+    }
+
+    /// Given a series of statistical samples, determine what the mapping must
+    /// be between the integers and the opcodes.
+    fn solve2(&self) {
+        // This maps between each opcode and the possible opcodes it could
+        // be.  We start with everything possible, and eliminate those
+        // that can't possibly be correct (because they perform the wrong
+        // operation on the data.
+        let mut codes = vec![0xffffu16; 16];
+
+        for sample in &self.samples {
+            for op in Opcode::iter() {
+                let mut reg = sample.before.clone();
+                op.eval(&sample.op, &mut reg);
+                if reg != sample.after {
+                    codes[sample.op[0] as usize] &= !(1 << (op as usize));
+                }
+            }
+        }
+
+        // To solve this, we need to scan for a code that has exactly one
+        // bit set in it.
+        let mut opmap = vec![Opcode::Addi; 16];
+        while let Some((pos, value)) = codes
+            .iter()
+            .cloned()
+            .enumerate()
+            .filter(|(_, v)| v.count_ones() == 1)
+            .next()
+        {
+            // println!("Got: {} {}", pos, value.trailing_zeros());
+
+            opmap[pos] = FromPrimitive::from_u32(value.trailing_zeros()).unwrap();
+            // Go through all of the values, and clear that bit.
+            for v in &mut codes {
+                *v &= !value;
+            }
+        }
+        println!("opmap: {:?}", opmap);
+
+        // Now run the sample program.
+        let mut reg = [0u32; 4];
+        for instr in &self.program {
+            opmap[instr[0] as usize].eval(&instr, &mut reg);
+        }
+        println!("r0: {}", reg[0]);
     }
 }
 
 /// Attempt to read a line from the input, matching it against the given
 /// regex, and returning the four values in an array.
-fn scan_line<I, E: 'static>(rd: &mut I, re: &Regex) -> Result<Option<[u8; 4]>>
+fn scan_line<I, E: 'static>(rd: &mut I, re: &Regex) -> Result<Option<[Register; 4]>>
     where I: Iterator<Item = result::Result<String, E>>,
           E: error::Error+Send+Sync,
 {
@@ -216,7 +275,7 @@ impl Opcode {
     /// Simulate a given operation.  Although the instruction as the opcode
     /// as its first element, this uses the 'self' argument so that the
     /// clients can try different opcodes.
-    fn eval(&self, instr: &[u8; 4], regs: &mut [u8; 4]) {
+    fn eval(&self, instr: &[Register; 4], regs: &mut [Register; 4]) {
         let (a, b) = match OP_MODE[*self as usize] {
             Mode::RegReg => (regs[instr[1] as usize], regs[instr[2] as usize]),
             Mode::ImmReg => (instr[1], regs[instr[2] as usize]),
