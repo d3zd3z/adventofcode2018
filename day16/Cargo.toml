@@ -1,0 +1,11 @@
+[package]
+name = "day16"
+version = "0.1.0"
+authors = ["David Brown <david.brown@linaro.org>"]
+edition = "2018"
+
+[dependencies]
+failure = "0.1"
+regex = "1.1"
+num-traits = "0.2"
+num-derive = "0.2"
